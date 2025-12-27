@@ -1,0 +1,213 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* RTL Base Styles */
+:root {
+  --color-primary: #FFE500;
+  --color-primary-dark: #D4BF00;
+  --color-dark: #1A1A1A;
+  --color-light: #F5F5F5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Vazirmatn', system-ui, -apple-system, sans-serif;
+  background-color: #ffffff;
+  color: var(--color-dark);
+  line-height: 1.7;
+  direction: rtl;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
+}
+
+/* Selection Color */
+::selection {
+  background-color: var(--color-primary);
+  color: var(--color-dark);
+}
+
+/* Focus Styles */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Custom Utility Classes */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .golden-highlight {
+    position: relative;
+    padding: 0 0.15em;
+    isolation: isolate;
+  }
+
+  .golden-highlight::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    bottom: 0.05em;
+    top: 45%;
+    background: var(--color-primary);
+    z-index: -1;
+    transform: rotate(-1deg) skewX(-3deg);
+    border-radius: 2px 8px 4px 6px;
+    opacity: 0.85;
+    /* Organic edges using clip-path */
+    clip-path: polygon(
+      0% 20%,
+      3% 0%,
+      8% 15%,
+      15% 5%,
+      25% 12%,
+      35% 2%,
+      45% 10%,
+      55% 0%,
+      65% 8%,
+      75% 3%,
+      85% 12%,
+      92% 5%,
+      97% 15%,
+      100% 8%,
+      100% 85%,
+      97% 100%,
+      92% 88%,
+      85% 95%,
+      75% 100%,
+      65% 90%,
+      55% 98%,
+      45% 92%,
+      35% 100%,
+      25% 88%,
+      15% 95%,
+      8% 100%,
+      3% 90%,
+      0% 100%
+    );
+  }
+
+  .golden-highlight::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    bottom: 0.1em;
+    top: 50%;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 229, 0, 0.3) 10%,
+      rgba(255, 229, 0, 0.15) 50%,
+      rgba(255, 229, 0, 0.35) 90%,
+      transparent 100%
+    );
+    z-index: -1;
+    transform: rotate(0.5deg);
+    border-radius: 4px;
+  }
+
+  .gradient-text {
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .glass-effect {
+    backdrop-filter: blur(10px);
+    background: rgba(255, 255, 255, 0.8);
+  }
+
+  .dark-glass {
+    backdrop-filter: blur(10px);
+    background: rgba(26, 26, 26, 0.9);
+  }
+}
+
+/* Animation Classes */
+@layer components {
+  .animate-stagger > * {
+    animation: slideUp 0.5s ease-out forwards;
+    opacity: 0;
+  }
+
+  .animate-stagger > *:nth-child(1) { animation-delay: 0.1s; }
+  .animate-stagger > *:nth-child(2) { animation-delay: 0.2s; }
+  .animate-stagger > *:nth-child(3) { animation-delay: 0.3s; }
+  .animate-stagger > *:nth-child(4) { animation-delay: 0.4s; }
+  .animate-stagger > *:nth-child(5) { animation-delay: 0.5s; }
+  .animate-stagger > *:nth-child(6) { animation-delay: 0.6s; }
+  .animate-stagger > *:nth-child(7) { animation-delay: 0.7s; }
+  .animate-stagger > *:nth-child(8) { animation-delay: 0.8s; }
+}
+
+/* Chat Message Styles */
+.chat-bubble {
+  max-width: 80%;
+  padding: 1rem 1.25rem;
+  border-radius: 1.25rem;
+  line-height: 1.6;
+}
+
+.chat-bubble-user {
+  background: var(--color-primary);
+  color: var(--color-dark);
+  border-bottom-left-radius: 0.25rem;
+  margin-left: auto;
+}
+
+.chat-bubble-assistant {
+  background: var(--color-light);
+  color: var(--color-dark);
+  border-bottom-right-radius: 0.25rem;
+  margin-right: auto;
+}
+
+/* Page Transition */
+.page-enter {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.page-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 300ms ease-out, transform 300ms ease-out;
+}
+
+.page-exit {
+  opacity: 1;
+}
+
+.page-exit-active {
+  opacity: 0;
+  transition: opacity 200ms ease-in;
+}
+
