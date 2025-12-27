@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { CheckCircle2, ChevronLeft, ChevronRight, Phone, User, GraduationCap, Gauge, Clock, Zap, Wrench, Target, Users } from 'lucide-react';
+import { CheckCircle2, ChevronLeft, ChevronRight, Phone, User, GraduationCap, Gauge, Clock, Zap, Wrench, Target, Users, Loader2 } from 'lucide-react';
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Textarea } from '../components/ui';
 import { Container, PageWrapper } from '../components/layout';
 import {
@@ -16,6 +16,7 @@ import {
   type OnboardingTimePerWeek,
   type Week4GoalChoice,
 } from '../lib/onboarding';
+import { sendOnboardingWebhook } from '../lib/chat-service';
 
 type StepId =
   | 'phone'
@@ -46,6 +47,7 @@ export default function Onboarding() {
 
   const [stepIndex, setStepIndex] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [form, setForm] = useState<Omit<OnboardingData, 'completedAt'>>({
     phone: existing?.phone ?? '',
@@ -144,15 +146,35 @@ export default function Onboarding() {
 
   const goBack = () => setStepIndex((s) => Math.max(0, s - 1));
 
-  const finish = () => {
+  const finish = async () => {
     if (!validateStep()) return;
+    
     const data: OnboardingData = {
       ...form,
       phone: normalizePhone(form.phone),
       completedAt: new Date().toISOString(),
     };
     saveOnboarding(data);
-    navigate('/chat', { replace: true });
+    
+    // Show loading state
+    setIsSubmitting(true);
+    
+    try {
+      // Send onboarding webhook and wait for response
+      const response = await sendOnboardingWebhook();
+      
+      // Store the response in sessionStorage so Chat page can display it
+      sessionStorage.setItem('onboarding_response', JSON.stringify(response));
+      
+      // Navigate to chat
+      navigate('/chat', { replace: true });
+    } catch (error) {
+      console.error('Error sending onboarding webhook:', error);
+      // Even if webhook fails, proceed to chat
+      navigate('/chat', { replace: true });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const stepMeta = useMemo(() => {
@@ -204,6 +226,36 @@ export default function Onboarding() {
     { value: 'money_plan', label: 'یک برنامه روشن دارم که AI چطور برام پول می‌سازه.' },
     { value: 'other', label: 'سایر' },
   ];
+
+  // Show loading screen while submitting onboarding data
+  if (isSubmitting) {
+    return (
+      <PageWrapper bgVariant="gradient">
+        <Container size="sm" className="py-10 sm:py-16">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3 }}
+            className="flex flex-col items-center justify-center min-h-[60vh]"
+          >
+            <div className="relative">
+              <div className="w-24 h-24 bg-primary/20 rounded-full flex items-center justify-center mb-8">
+                <Loader2 className="w-12 h-12 text-primary-600 animate-spin" />
+              </div>
+              {/* Pulse effect */}
+              <div className="absolute inset-0 w-24 h-24 bg-primary/10 rounded-full animate-ping" />
+            </div>
+            <h2 className="text-2xl font-bold text-dark-700 mb-3 text-center">
+              در حال آماده‌سازی...
+            </h2>
+            <p className="text-dark-400 text-center max-w-sm leading-relaxed">
+              لطفاً صبر کنید، مشاور شخصی شما در حال آماده شدن است.
+            </p>
+          </motion.div>
+        </Container>
+      </PageWrapper>
+    );
+  }
 
   return (
     <PageWrapper bgVariant="gradient">

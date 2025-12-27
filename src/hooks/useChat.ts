@@ -1,5 +1,8 @@
 import { create } from 'zustand';
-import { Message, sendMessage, createMessage, getGreetingMessage } from '../lib/chat-service';
+import { Message, sendMessage, createMessage, getGreetingMessage, ChatResponse } from '../lib/chat-service';
+
+// Key for storing onboarding response in sessionStorage
+const ONBOARDING_RESPONSE_KEY = 'onboarding_response';
 
 interface ChatState {
   messages: Message[];
@@ -66,10 +69,36 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   initChat: () => {
-    const { messages } = get();
+    const { messages, setSuggestions } = get();
     if (messages.length === 0) {
-      const greeting = getGreetingMessage();
-      set({ messages: [greeting] });
+      // Check if there's an onboarding response to display
+      const onboardingResponseRaw = sessionStorage.getItem(ONBOARDING_RESPONSE_KEY);
+      
+      if (onboardingResponseRaw) {
+        try {
+          const onboardingResponse: ChatResponse = JSON.parse(onboardingResponseRaw);
+          // Clear the stored response so it's only used once
+          sessionStorage.removeItem(ONBOARDING_RESPONSE_KEY);
+          
+          // Create assistant message from the onboarding response
+          const assistantMessage = createMessage('assistant', onboardingResponse.message);
+          set({ messages: [assistantMessage] });
+          
+          // Set suggestions if available
+          if (onboardingResponse.suggestions && onboardingResponse.suggestions.length > 0) {
+            setSuggestions(onboardingResponse.suggestions);
+          }
+        } catch (error) {
+          console.error('Error parsing onboarding response:', error);
+          // Fall back to default greeting
+          const greeting = getGreetingMessage();
+          set({ messages: [greeting] });
+        }
+      } else {
+        // No onboarding response, use default greeting
+        const greeting = getGreetingMessage();
+        set({ messages: [greeting] });
+      }
     }
   },
 }));

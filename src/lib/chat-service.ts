@@ -102,6 +102,124 @@ export async function sendMessage(content: string): Promise<ChatResponse> {
 }
 
 /**
+ * Format onboarding data as a Persian message with all questions and answers.
+ */
+function formatOnboardingMessagePersian(data: ReturnType<typeof loadOnboarding>): string {
+  if (!data) return '';
+  
+  const genderLabels: Record<string, string> = {
+    male: 'مرد',
+    female: 'زن',
+    other: 'دیگر',
+    na: 'ترجیح می‌دهم نگویم',
+  };
+  
+  const timeLabels: Record<string, string> = {
+    '2h': '۲ ساعت',
+    '5h': '۵ ساعت',
+    '10h': '۱۰ ساعت',
+  };
+  
+  const paceLabels: Record<string, string> = {
+    fast: 'فست ترک (سریع و نتیجه‌محور)',
+    deep: 'عمیق (با مثال و تمرین بیشتر)',
+  };
+  
+  const week4Labels: Record<string, string> = {
+    explain_ai_confident: 'می‌تونم AI رو واضح توضیح بدم و اعتمادبه‌نفس داشته باشم.',
+    use_chatgpt_pro: 'می‌تونم مثل حرفه‌ای‌ها از ChatGPT برای کارهای واقعی استفاده کنم.',
+    mini_workflow: 'یک مینی‌ورک‌فلو/اتوماسیونِ قابل‌استفاده برای کارم دارم.',
+    money_plan: 'یک برنامه روشن دارم که AI چطور برام پول می‌سازه.',
+    other: 'سایر',
+  };
+
+  const lines: string[] = [
+    `سوالات آنبوردینگ:`,
+    ``,
+    `۱. شماره تلفن: ${data.phone}`,
+    `۲. شغل: ${data.job}`,
+    `۳. سن: ${data.age}`,
+    `۴. جنسیت: ${genderLabels[data.gender] || data.gender}`,
+    `۵. تحصیلات: ${data.education}`,
+    `۶. سطح فعلی در کار با AI (۰ تا ۱۰): ${data.level0to10}`,
+    `۷. زمان در هفته: ${timeLabels[data.timePerWeek] || data.timePerWeek}`,
+    `۸. ریتم یادگیری: ${paceLabels[data.pace] || data.pace}`,
+    `۹. ابزارهای AI: ${(data.tools && data.tools.length > 0) ? data.tools.join('، ') : 'هیچکدام'}`,
+    `۱۰. هدف هفته ۴: ${week4Labels[data.week4GoalChoice] || data.week4GoalChoice}`,
+  ];
+  
+  if (data.week4GoalChoice === 'other' && data.week4GoalOtherText) {
+    lines.push(`    توضیحات: ${data.week4GoalOtherText}`);
+  }
+  
+  return lines.join('\n');
+}
+
+/**
+ * Send onboarding data to webhook after completing the onboarding flow.
+ * Returns the assistant's response to display in the chat.
+ */
+export async function sendOnboardingWebhook(): Promise<ChatResponse> {
+  try {
+    const userId = getUserId();
+    const onboarding = loadOnboarding();
+    const messagePersian = formatOnboardingMessagePersian(onboarding);
+    
+    const response = await fetch(WEBHOOK_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        onboarding: true,
+        message: messagePersian,
+        userId: userId,
+        onboardingData: onboarding,
+        timestamp: new Date().toISOString(),
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const text = await response.text();
+    
+    try {
+      const data = JSON.parse(text);
+      
+      // Handle array response format: [{ "output": "..." }]
+      if (Array.isArray(data) && data.length > 0) {
+        const firstItem = data[0];
+        return {
+          message: firstItem.output || firstItem.message || firstItem.response || firstItem.text || firstItem.content || JSON.stringify(firstItem),
+          suggestions: firstItem.suggestions || [],
+        };
+      }
+      
+      // Handle object response format: { "message": "..." }
+      return {
+        message: data.message || data.response || data.output || data.text || data.content || text,
+        suggestions: data.suggestions || [],
+      };
+    } catch {
+      // If not JSON, treat the raw text as the message
+      return {
+        message: text,
+        suggestions: [],
+      };
+    }
+  } catch (error) {
+    console.error('Error sending onboarding webhook:', error);
+    // Return a fallback message
+    return {
+      message: `به دوره AI-First خوش آمدید! 🎉\n\nاطلاعات شما با موفقیت ثبت شد. من مشاور شخصی شما در این دوره هستم و آماده پاسخگویی به سوالاتتان هستم.`,
+      suggestions: ['محتوای دوره چیست؟', 'از کجا شروع کنم؟'],
+    };
+  }
+}
+
+/**
  * Send a user's question to an escalation webhook ("Ask Kheizaran").
  * This is intentionally fire-and-forget from the UI perspective; errors are surfaced via rejection.
  */
