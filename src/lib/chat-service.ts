@@ -6,6 +6,11 @@ export interface Message {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  /**
+   * Optional: when the assistant could not find an answer and wants to offer
+   * escalating the user's question to Kheizaran via a webhook.
+   */
+  notFoundUserMessage?: string;
 }
 
 export interface ChatResponse {
@@ -15,6 +20,10 @@ export interface ChatResponse {
 
 // Webhook URL for chat messages
 const WEBHOOK_URL = 'https://seoul.aiautomation.bar/webhook/7319e205-80b1-4fc1-b5eb-4160e8473a84';
+
+// Optional separate webhook for "Ask Kheizaran" escalations (can be overridden via env)
+const ASK_KHEIZARAN_WEBHOOK_URL =
+  (import.meta as any).env?.VITE_ASK_KHEIZARAN_WEBHOOK_URL || WEBHOOK_URL;
 
 // Storage key for user ID
 const USER_ID_KEY = 'kheizaran_user_id';
@@ -89,6 +98,33 @@ export async function sendMessage(content: string): Promise<ChatResponse> {
       message: `متأسفانه در برقراری ارتباط مشکلی پیش آمد. لطفاً دوباره تلاش کنید.\n\n${chatbotIntro.capabilities.map(c => `• ${c}`).join('\n')}`,
       suggestions: ['محتوای دوره', 'مسیرهای یادگیری'],
     };
+  }
+}
+
+/**
+ * Send a user's question to an escalation webhook ("Ask Kheizaran").
+ * This is intentionally fire-and-forget from the UI perspective; errors are surfaced via rejection.
+ */
+export async function sendAskKheizaranWebhook(question: string): Promise<void> {
+  const userId = getUserId();
+  const onboarding = loadOnboarding();
+
+  const response = await fetch(ASK_KHEIZARAN_WEBHOOK_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      type: 'ask_kheizaran',
+      message: question,
+      userId,
+      onboarding,
+      timestamp: new Date().toISOString(),
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`AskKheizaran webhook failed: ${response.status}`);
   }
 }
 

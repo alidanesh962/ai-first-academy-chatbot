@@ -211,3 +211,160 @@ body {
   transition: opacity 200ms ease-in;
 }
 
+/* ===== MARKDOWN CONTENT STYLES ===== */
+.markdown-content {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  direction: rtl;
+  text-align: right;
+}
+
+.markdown-content * {
+  direction: rtl;
+  text-align: right;
+}
+
+/* Code elements should remain LTR */
+.markdown-content code,
+.markdown-content pre {
+  direction: ltr;
+  text-align: left;
+}
+
+/* Nested list styling */
+.markdown-content ul ul,
+.markdown-content ol ul,
+.markdown-content ul ol,
+.markdown-content ol ol {
+  margin-top: 0.5rem;
+  margin-bottom: 0;
+  margin-right: 1rem;
+}
+
+/* Better list item spacing for nested content */
+.markdown-content li > p {
+  margin: 0;
+}
+
+.markdown-content li > ul,
+.markdown-content li > ol {
+  margin-top: 0.5rem;
+}
+
+/* Blockquote nested paragraph */
+.markdown-content blockquote > p {
+  margin: 0;
+}
+
+.markdown-content blockquote > p:not(:last-child) {
+  margin-bottom: 0.5rem;
+}
+
+/* Code block scrollbar */
+.markdown-content pre::-webkit-scrollbar {
+  height: 6px;
+}
+
+.markdown-content pre::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.markdown-content pre::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+}
+
+/* Table alternating rows */
+.markdown-content tbody tr:nth-child(even) {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+/* Emphasis combinations */
+.markdown-content strong em,
+.markdown-content em strong {
+  font-weight: 700;
+  font-style: italic;
+}
+
+/* Headers following content */
+.markdown-content p + h1,
+.markdown-content p + h2,
+.markdown-content p + h3,
+.markdown-content ul + h1,
+.markdown-content ul + h2,
+.markdown-content ul + h3,
+.markdown-content ol + h1,
+.markdown-content ol + h2,
+.markdown-content ol + h3 {
+  margin-top: 1.5rem;
+}
+
+/* Better spacing between sections */
+.markdown-content hr + h2,
+.markdown-content hr + h3 {
+  margin-top: 1rem;
+}
+
+/* User message specific styles (lighter text on primary background) */
+.markdown-content.user-message strong {
+  color: inherit;
+}
+
+.markdown-content.user-message code {
+  background: rgba(0, 0, 0, 0.1);
+  color: inherit;
+}
+
+/* Assistant message enhancements */
+.markdown-content.assistant-message h2 {
+  color: #2d5a27;
+}
+
+.markdown-content.assistant-message blockquote {
+  border-color: #4caf50;
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.08) 0%, rgba(139, 195, 74, 0.05) 100%);
+}
+
+/* Smooth transitions for interactive elements */
+.markdown-content a {
+  transition: all 0.2s ease;
+}
+
+.markdown-content a:hover {
+  opacity: 0.85;
+}
+
+/* Selection in markdown */
+.markdown-content ::selection {
+  background-color: var(--color-primary);
+  color: var(--color-dark);
+}
+
+/* Animation for new content */
+@keyframes markdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.markdown-content > * {
+  animation: markdownFadeIn 0.3s ease-out forwards;
+}
+
+.markdown-content > *:nth-child(1) { animation-delay: 0.02s; }
+.markdown-content > *:nth-child(2) { animation-delay: 0.04s; }
+.markdown-content > *:nth-child(3) { animation-delay: 0.06s; }
+.markdown-content > *:nth-child(4) { animation-delay: 0.08s; }
+.markdown-content > *:nth-child(5) { animation-delay: 0.10s; }
+.markdown-content > *:nth-child(6) { animation-delay: 0.12s; }
+.markdown-content > *:nth-child(7) { animation-delay: 0.14s; }
+.markdown-content > *:nth-child(8) { animation-delay: 0.16s; }
+.markdown-content > *:nth-child(9) { animation-delay: 0.18s; }
+.markdown-content > *:nth-child(10) { animation-delay: 0.20s; }
+

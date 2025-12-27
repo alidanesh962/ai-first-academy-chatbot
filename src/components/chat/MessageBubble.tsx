@@ -1,20 +1,16 @@
 import { motion } from 'framer-motion';
 import { Bot, User, Send, Check } from 'lucide-react';
-import { useState } from 'react';
+import { useState, createContext, useContext } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Message, sendAskKheizaranWebhook } from '../../lib/chat-service';
 
 interface MessageBubbleProps {
   message: Message;
 }
 
-// Format text with markdown-like syntax
-function formatText(text: string): string {
-  return text
-    // Bold text **text**
-    .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-dark-800">$1</strong>')
-    // Inline code `code`
-    .replace(/`([^`]+)`/g, '<code class="bg-dark-100 text-dark-700 px-1.5 py-0.5 rounded text-[13px] font-mono">$1</code>');
-}
+// Context to track if we're inside an ordered list
+const ListContext = createContext<{ ordered: boolean; index: number }>({ ordered: false, index: 0 });
 
 export default function MessageBubble({ message }: MessageBubbleProps) {
   const isUser = message.role === 'user';
@@ -33,181 +29,6 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
     } finally {
       setIsAskKheizaranLoading(false);
     }
-  };
-
-  // Parse content into structured elements
-  const renderContent = () => {
-    const lines = message.content.split('\n');
-    const elements: JSX.Element[] = [];
-    let i = 0;
-
-    while (i < lines.length) {
-      const line = lines[i];
-      const trimmedLine = line.trim();
-
-      // Empty line - add spacing
-      if (trimmedLine === '') {
-        elements.push(<div key={i} className="h-2" />);
-        i++;
-        continue;
-      }
-
-      // H1 Header: # Title
-      if (trimmedLine.startsWith('# ')) {
-        elements.push(
-          <h1 
-            key={i} 
-            className="text-lg font-bold text-dark-800 mt-4 mb-2 pb-1 border-b border-dark-100"
-            dangerouslySetInnerHTML={{ __html: formatText(trimmedLine.slice(2)) }}
-          />
-        );
-        i++;
-        continue;
-      }
-
-      // H2 Header: ## Title
-      if (trimmedLine.startsWith('## ')) {
-        elements.push(
-          <h2 
-            key={i} 
-            className="text-base font-bold text-dark-800 mt-4 mb-2 flex items-center gap-2"
-          >
-            <span className="w-1 h-5 bg-primary rounded-full flex-shrink-0" />
-            <span dangerouslySetInnerHTML={{ __html: formatText(trimmedLine.slice(3)) }} />
-          </h2>
-        );
-        i++;
-        continue;
-      }
-
-      // H3 Header: ### Title
-      if (trimmedLine.startsWith('### ')) {
-        elements.push(
-          <h3 
-            key={i} 
-            className="text-[15px] font-semibold text-dark-700 mt-3 mb-1.5"
-            dangerouslySetInnerHTML={{ __html: formatText(trimmedLine.slice(4)) }}
-          />
-        );
-        i++;
-        continue;
-      }
-
-      // Numbered list with possible sub-items: 1) or 1.
-      const numberedMatch = trimmedLine.match(/^(\d+)[\)\.]\s*(.*)/);
-      if (numberedMatch) {
-        const listItems: JSX.Element[] = [];
-        
-        while (i < lines.length) {
-          const currentLine = lines[i];
-          const currentTrimmed = currentLine.trim();
-          const numMatch = currentTrimmed.match(/^(\d+)[\)\.]\s*(.*)/);
-          
-          if (numMatch) {
-            // Collect sub-items (lines starting with - or • after this)
-            const subItems: string[] = [];
-            let j = i + 1;
-            while (j < lines.length) {
-              const subLine = lines[j].trim();
-              if (subLine.startsWith('-') || subLine.startsWith('•')) {
-                subItems.push(subLine.replace(/^[-•]\s*/, ''));
-                j++;
-              } else if (subLine.startsWith('  -') || subLine.startsWith('  •')) {
-                subItems.push(lines[j].trim().replace(/^[-•]\s*/, ''));
-                j++;
-              } else {
-                break;
-              }
-            }
-            
-            listItems.push(
-              <div key={i} className="mb-3">
-                <div className="flex items-start gap-2 flex-row-reverse">
-                  <span className="text-primary-600 font-bold min-w-[1.5rem] flex-shrink-0 text-left">
-                    {numMatch[1]})
-                  </span>
-                  <span 
-                    className="flex-1 font-medium"
-                    dangerouslySetInnerHTML={{ __html: formatText(numMatch[2]) }} 
-                  />
-                </div>
-                {subItems.length > 0 && (
-                  <div className="mr-6 mt-1.5 space-y-1">
-                    {subItems.map((sub, idx) => (
-                      <div key={idx} className="flex items-start gap-2 flex-row-reverse text-[14px]">
-                        <span className="text-primary-500 mt-1 flex-shrink-0">•</span>
-                        <span 
-                          className="flex-1 text-dark-600"
-                          dangerouslySetInnerHTML={{ __html: formatText(sub) }} 
-                        />
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-            i = j;
-          } else if (currentTrimmed === '' || currentTrimmed.startsWith('#')) {
-            break;
-          } else {
-            i++;
-            break;
-          }
-        }
-        
-        elements.push(
-          <div key={`list-${i}`} className="my-2">
-            {listItems}
-          </div>
-        );
-        continue;
-      }
-
-      // Bullet point: - or •
-      if (trimmedLine.startsWith('-') || trimmedLine.startsWith('•')) {
-        const bulletItems: string[] = [];
-        
-        while (i < lines.length) {
-          const currentLine = lines[i].trim();
-          if (currentLine.startsWith('-') || currentLine.startsWith('•')) {
-            bulletItems.push(currentLine.replace(/^[-•]\s*/, ''));
-            i++;
-          } else if (currentLine === '') {
-            i++;
-            break;
-          } else {
-            break;
-          }
-        }
-        
-        elements.push(
-          <div key={`bullets-${i}`} className="my-2 space-y-1.5">
-            {bulletItems.map((item, idx) => (
-              <div key={idx} className="flex items-start gap-2 flex-row-reverse">
-                <span className="text-primary-600 mt-1 flex-shrink-0">•</span>
-                <span 
-                  className="flex-1"
-                  dangerouslySetInnerHTML={{ __html: formatText(item) }} 
-                />
-              </div>
-            ))}
-          </div>
-        );
-        continue;
-      }
-
-      // Regular paragraph
-      elements.push(
-        <p
-          key={i}
-          className="my-1.5 leading-relaxed"
-          dangerouslySetInnerHTML={{ __html: formatText(line) }}
-        />
-      );
-      i++;
-    }
-
-    return elements;
   };
 
   return (
@@ -242,9 +63,178 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
           }
         `}
       >
-        {/* Rendered content */}
-        <div className="text-[15px] leading-relaxed">
-          {renderContent()}
+        {/* Rendered Markdown content */}
+        <div className={`markdown-content text-[15px] leading-relaxed ${isUser ? 'user-message' : 'assistant-message'}`} dir="rtl">
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              // Headers
+              h1: ({ children }) => (
+                <h1 className="text-xl font-bold text-dark-800 mt-4 mb-3 pb-2 border-b-2 border-primary/30 first:mt-0">
+                  {children}
+                </h1>
+              ),
+              h2: ({ children }) => (
+                <h2 className="text-lg font-bold text-dark-800 mt-5 mb-2 flex items-center gap-2 flex-row-reverse first:mt-0">
+                  <span className="w-1 h-5 bg-primary rounded-full flex-shrink-0" />
+                  <span className="flex-1">{children}</span>
+                </h2>
+              ),
+              h3: ({ children }) => (
+                <h3 className="text-base font-semibold text-dark-700 mt-4 mb-2 first:mt-0">
+                  {children}
+                </h3>
+              ),
+              h4: ({ children }) => (
+                <h4 className="text-[15px] font-semibold text-dark-600 mt-3 mb-1.5 first:mt-0">
+                  {children}
+                </h4>
+              ),
+              // Paragraph
+              p: ({ children }) => (
+                <p className="my-2 leading-relaxed first:mt-0 last:mb-0">
+                  {children}
+                </p>
+              ),
+              // Unordered Lists
+              ul: ({ children }) => (
+                <ListContext.Provider value={{ ordered: false, index: 0 }}>
+                  <ul className="my-3 space-y-2">
+                    {children}
+                  </ul>
+                </ListContext.Provider>
+              ),
+              // Ordered Lists
+              ol: ({ children, start }) => {
+                let index = (start || 1) - 1;
+                return (
+                  <ol className="my-3 space-y-2 list-none">
+                    {Array.isArray(children) 
+                      ? children.map((child, i) => (
+                          <ListContext.Provider key={i} value={{ ordered: true, index: ++index }}>
+                            {child}
+                          </ListContext.Provider>
+                        ))
+                      : <ListContext.Provider value={{ ordered: true, index: start || 1 }}>
+                          {children}
+                        </ListContext.Provider>
+                    }
+                  </ol>
+                );
+              },
+              // List Items
+              li: ({ children }) => {
+                const listContext = useContext(ListContext);
+                
+                if (listContext.ordered) {
+                  return (
+                    <li className="flex items-start gap-3 flex-row-reverse">
+                      <span className="text-primary-600 font-bold min-w-[1.5rem] flex-shrink-0 mt-0.5">
+                        {listContext.index})
+                      </span>
+                      <span className="flex-1">{children}</span>
+                    </li>
+                  );
+                }
+                
+                return (
+                  <li className="flex items-start gap-2 flex-row-reverse">
+                    <span className="text-primary-600 mt-1.5 flex-shrink-0 text-lg leading-none">•</span>
+                    <span className="flex-1">{children}</span>
+                  </li>
+                );
+              },
+              // Blockquote
+              blockquote: ({ children }) => (
+                <blockquote className="my-4 pr-4 border-r-4 border-primary bg-primary/5 py-3 pl-4 rounded-l-lg text-dark-600 italic">
+                  {children}
+                </blockquote>
+              ),
+              // Code
+              code: ({ children, className }) => {
+                const isInline = !className;
+                if (isInline) {
+                  return (
+                    <code className="bg-dark-100 text-dark-700 px-1.5 py-0.5 rounded text-[13px] font-mono" dir="ltr">
+                      {children}
+                    </code>
+                  );
+                }
+                return (
+                  <code className="block bg-dark-800 text-dark-100 p-4 rounded-lg text-sm font-mono overflow-x-auto my-3" dir="ltr">
+                    {children}
+                  </code>
+                );
+              },
+              pre: ({ children }) => (
+                <pre className="my-3 rounded-lg overflow-hidden" dir="ltr">
+                  {children}
+                </pre>
+              ),
+              // Strong/Bold
+              strong: ({ children }) => (
+                <strong className="font-bold text-dark-800">
+                  {children}
+                </strong>
+              ),
+              // Emphasis/Italic
+              em: ({ children }) => (
+                <em className="italic text-dark-600">
+                  {children}
+                </em>
+              ),
+              // Links
+              a: ({ children, href }) => (
+                <a 
+                  href={href} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-primary-700 underline underline-offset-2 hover:text-primary-800 transition-colors"
+                >
+                  {children}
+                </a>
+              ),
+              // Horizontal Rule
+              hr: () => (
+                <hr className="my-5 border-t-2 border-dark-100" />
+              ),
+              // Table
+              table: ({ children }) => (
+                <div className="my-4 overflow-x-auto rounded-lg border border-dark-100">
+                  <table className="w-full text-sm">
+                    {children}
+                  </table>
+                </div>
+              ),
+              thead: ({ children }) => (
+                <thead className="bg-primary/20 text-dark-800">
+                  {children}
+                </thead>
+              ),
+              tbody: ({ children }) => (
+                <tbody className="divide-y divide-dark-100">
+                  {children}
+                </tbody>
+              ),
+              tr: ({ children }) => (
+                <tr className="hover:bg-dark-50 transition-colors">
+                  {children}
+                </tr>
+              ),
+              th: ({ children }) => (
+                <th className="px-4 py-3 font-bold border-b-2 border-primary/30">
+                  {children}
+                </th>
+              ),
+              td: ({ children }) => (
+                <td className="px-4 py-3">
+                  {children}
+                </td>
+              ),
+            }}
+          >
+            {message.content}
+          </ReactMarkdown>
         </div>
 
         {/* Timestamp */}
@@ -295,4 +285,3 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
     </motion.div>
   );
 }
-
