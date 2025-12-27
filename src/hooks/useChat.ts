@@ -40,8 +40,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
       // Get AI response
       const response = await sendMessage(content);
       
-      // Add assistant message
-      const assistantMessage = createMessage('assistant', response.message);
+      // Check if response contains $NOT_FOUND$ marker
+      const NOT_FOUND_MARKER = '$NOT_FOUND$';
+      const hasNotFound = response.message.includes(NOT_FOUND_MARKER);
+      
+      // Strip the $NOT_FOUND$ marker from the message
+      const cleanedMessage = response.message.replace(NOT_FOUND_MARKER, '').trim();
+      
+      // Add assistant message with notFoundUserMessage if applicable
+      const assistantMessage = createMessage('assistant', cleanedMessage);
+      if (hasNotFound) {
+        assistantMessage.notFoundUserMessage = content;
+      }
       addMessage(assistantMessage);
       
       // Update suggestions

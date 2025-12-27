@@ -21,9 +21,8 @@ export interface ChatResponse {
 // Webhook URL for chat messages
 const WEBHOOK_URL = 'https://seoul.aiautomation.bar/webhook/7319e205-80b1-4fc1-b5eb-4160e8473a84';
 
-// Optional separate webhook for "Ask Kheizaran" escalations (can be overridden via env)
-const ASK_KHEIZARAN_WEBHOOK_URL =
-  (import.meta as any).env?.VITE_ASK_KHEIZARAN_WEBHOOK_URL || WEBHOOK_URL;
+// Webhook URL for "Ask Kheizaran" escalations (when bot doesn't know the answer)
+const ASK_KHEIZARAN_WEBHOOK_URL = 'https://seoul.aiautomation.bar/webhook/a23cc996-5836-4081-b4f9-8b088e4922d0';
 
 // Storage key for user ID
 const USER_ID_KEY = 'kheizaran_user_id';
@@ -45,7 +44,6 @@ function getUserId(): string {
 export async function sendMessage(content: string): Promise<ChatResponse> {
   try {
     const userId = getUserId();
-    const onboarding = loadOnboarding();
     
     const response = await fetch(WEBHOOK_URL, {
       method: 'POST',
@@ -55,7 +53,6 @@ export async function sendMessage(content: string): Promise<ChatResponse> {
       body: JSON.stringify({
         message: content,
         userId: userId,
-        onboarding,
         timestamp: new Date().toISOString(),
       }),
     });
