@@ -5,6 +5,27 @@ import { Message, sendMessage, createMessage, getGreetingMessage, ChatResponse }
 // Key for storing onboarding response in sessionStorage
 const ONBOARDING_RESPONSE_KEY = 'onboarding_response';
 const CHAT_STORAGE_KEY = 'kheizaran_chat_state';
+const LANG_KEY = 'kheizaran_language';
+
+function defaultSuggestions(): string[] {
+  try {
+    const v = localStorage.getItem(LANG_KEY);
+    if (v === 'en') return ['What is the course about?', 'Where should I start?'];
+  } catch {
+    // ignore
+  }
+  return ['محتوای دوره چیست؟', 'از کجا شروع کنم؟'];
+}
+
+function genericErrorMessage(): string {
+  try {
+    const v = localStorage.getItem(LANG_KEY);
+    if (v === 'en') return 'Sorry, something went wrong. Please try again.';
+  } catch {
+    // ignore
+  }
+  return 'متأسفانه مشکلی پیش آمد. لطفاً دوباره تلاش کنید.';
+}
 
 interface ChatState {
   messages: Message[];
@@ -22,7 +43,7 @@ export const useChatStore = create<ChatState>()(
     (set, get) => ({
       messages: [],
       isLoading: false,
-      suggestions: ['محتوای دوره چیست؟', 'از کجا شروع کنم؟'],
+      suggestions: defaultSuggestions(),
 
       addMessage: (message) => {
         set((state) => ({
@@ -64,7 +85,7 @@ export const useChatStore = create<ChatState>()(
           }
         } catch (error) {
           // Handle error
-          const errorMessage = createMessage('assistant', 'متأسفانه مشکلی پیش آمد. لطفاً دوباره تلاش کنید.');
+          const errorMessage = createMessage('assistant', genericErrorMessage());
           addMessage(errorMessage);
         } finally {
           set({ isLoading: false });
@@ -76,7 +97,7 @@ export const useChatStore = create<ChatState>()(
       },
 
       clearChat: () => {
-        set({ messages: [], suggestions: ['محتوای دوره چیست؟', 'از کجا شروع کنم؟'] });
+        set({ messages: [], suggestions: defaultSuggestions() });
       },
 
       initChat: () => {

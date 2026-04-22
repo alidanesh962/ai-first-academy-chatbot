@@ -4,6 +4,7 @@ import { useState, createContext, useContext } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Message, sendAskKheizaranWebhook } from '../../lib/chat-service';
+import { useI18n } from '../../lib/i18n';
 
 interface MessageBubbleProps {
   message: Message;
@@ -16,6 +17,7 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
   const isUser = message.role === 'user';
   const [isAskKheizaranSent, setIsAskKheizaranSent] = useState(false);
   const [isAskKheizaranLoading, setIsAskKheizaranLoading] = useState(false);
+  const { t, lang, isRtl } = useI18n();
 
   const handleAskKheizaran = async () => {
     if (!message.notFoundUserMessage || isAskKheizaranSent || isAskKheizaranLoading) return;
@@ -54,17 +56,17 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
 
       {/* Message Content */}
       <div
-        dir="rtl"
+        dir={isRtl ? 'rtl' : 'ltr'}
         className={`
-          max-w-[85%] sm:max-w-[80%] p-4 rounded-2xl text-right
-          ${isUser 
-            ? 'bg-primary text-dark-700 rounded-bl-sm' 
-            : 'bg-white text-dark-700 shadow-md rounded-br-sm'
+          max-w-[85%] sm:max-w-[80%] p-4 rounded-2xl ${isRtl ? 'text-right' : 'text-left'}
+          ${isUser
+            ? `bg-primary text-dark-700 ${isRtl ? 'rounded-bl-sm' : 'rounded-br-sm'}`
+            : `bg-white text-dark-700 shadow-md ${isRtl ? 'rounded-br-sm' : 'rounded-bl-sm'}`
           }
         `}
       >
         {/* Rendered Markdown content */}
-        <div className={`markdown-content text-[15px] leading-relaxed ${isUser ? 'user-message' : 'assistant-message'}`} dir="rtl">
+        <div className={`markdown-content text-[15px] leading-relaxed ${isUser ? 'user-message' : 'assistant-message'}`} dir={isRtl ? 'rtl' : 'ltr'}>
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             components={{
@@ -75,7 +77,7 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
                 </h1>
               ),
               h2: ({ children }) => (
-                <h2 className="text-lg font-bold text-dark-800 mt-5 mb-2 flex items-center gap-2 flex-row-reverse first:mt-0">
+                <h2 className={`text-lg font-bold text-dark-800 mt-5 mb-2 flex items-center gap-2 first:mt-0 ${isRtl ? 'flex-row-reverse' : ''}`}>
                   <span className="w-1 h-5 bg-primary rounded-full flex-shrink-0" />
                   <span className="flex-1">{children}</span>
                 </h2>
@@ -128,7 +130,7 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
                 
                 if (listContext.ordered) {
                   return (
-                    <li className="flex items-start gap-3 flex-row-reverse">
+                    <li className={`flex items-start gap-3 ${isRtl ? 'flex-row-reverse' : ''}`}>
                       <span className="text-primary-600 font-bold min-w-[1.5rem] flex-shrink-0 mt-0.5">
                         {listContext.index})
                       </span>
@@ -136,9 +138,9 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
                     </li>
                   );
                 }
-                
+
                 return (
-                  <li className="flex items-start gap-2 flex-row-reverse">
+                  <li className={`flex items-start gap-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
                     <span className="text-primary-600 mt-1.5 flex-shrink-0 text-lg leading-none">•</span>
                     <span className="flex-1">{children}</span>
                   </li>
@@ -146,7 +148,7 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
               },
               // Blockquote
               blockquote: ({ children }) => (
-                <blockquote className="my-4 pr-4 border-r-4 border-primary bg-primary/5 py-3 pl-4 rounded-l-lg text-dark-600 italic">
+                <blockquote className={`my-4 py-3 px-4 bg-primary/5 border-primary text-dark-600 italic ${isRtl ? 'border-r-4 rounded-l-lg' : 'border-l-4 rounded-r-lg'}`}>
                   {children}
                 </blockquote>
               ),
@@ -245,7 +247,7 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
             ${isUser ? 'text-right' : 'text-left'}
           `}
         >
-          {message.timestamp.toLocaleTimeString('fa-IR', {
+          {message.timestamp.toLocaleTimeString(lang === 'fa' ? 'fa-IR' : 'en-US', {
             hour: '2-digit',
             minute: '2-digit',
           })}
@@ -261,7 +263,7 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
                 className="flex items-center justify-center gap-2 py-2 px-4 bg-green-50 text-green-700 rounded-xl text-sm font-medium"
               >
                 <Check className="w-4 h-4" />
-                <span>سوالت برای خیزران ارسال شد</span>
+                <span>{t('chat.askKheizaran.sent')}</span>
               </motion.div>
             ) : (
               <motion.button
@@ -276,7 +278,7 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
                 ) : (
                   <Send className="w-4 h-4" />
                 )}
-                <span>از خیزران بپرس</span>
+                <span>{t('chat.askKheizaran.action')}</span>
               </motion.button>
             )}
           </div>

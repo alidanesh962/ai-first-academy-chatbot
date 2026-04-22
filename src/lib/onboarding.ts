@@ -1,3 +1,5 @@
+import { parsePhoneNumberFromString, type CountryCode } from 'libphonenumber-js';
+
 export type OnboardingTimePerWeek = '2h' | '5h' | '10h';
 export type OnboardingPace = 'fast' | 'deep';
 export type OnboardingGender = 'male' | 'female' | 'other' | 'na';
@@ -91,6 +93,29 @@ export function normalizePhone(input: string): string {
     .trim()
     .replace(/[^\d+]/g, ''); // keep digits and leading +
   return s;
+}
+
+export const DEFAULT_PHONE_COUNTRY: CountryCode = 'IR';
+
+/**
+ * Convert a user-entered phone string into a valid E.164 phone number (e.g. +12025550123).
+ * - If input starts with "+", it is parsed as international.
+ * - Otherwise, it is parsed as a national number in `defaultCountry`.
+ * Returns "" when invalid.
+ */
+export function toE164Phone(input: string, defaultCountry: CountryCode = DEFAULT_PHONE_COUNTRY): string {
+  const n = normalizePhone(input);
+  if (!n) return '';
+
+  const parsed = n.startsWith('+')
+    ? parsePhoneNumberFromString(n)
+    : parsePhoneNumberFromString(n, defaultCountry);
+
+  return parsed?.isValid() ? parsed.number : '';
+}
+
+export function isValidPhone(input: string, defaultCountry: CountryCode = DEFAULT_PHONE_COUNTRY): boolean {
+  return Boolean(toE164Phone(input, defaultCountry));
 }
 
 export function isValidIranPhone(input: string): boolean {

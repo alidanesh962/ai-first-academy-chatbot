@@ -23,8 +23,10 @@ body {
   background-color: #ffffff;
   color: var(--color-dark);
   line-height: 1.7;
-  direction: rtl;
 }
+
+html[dir='rtl'] body { direction: rtl; }
+html[dir='ltr'] body { direction: ltr; }
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
@@ -215,13 +217,18 @@ body {
 .markdown-content {
   word-wrap: break-word;
   overflow-wrap: break-word;
+}
+
+html[dir='rtl'] .markdown-content,
+html[dir='rtl'] .markdown-content * {
   direction: rtl;
   text-align: right;
 }
 
-.markdown-content * {
-  direction: rtl;
-  text-align: right;
+html[dir='ltr'] .markdown-content,
+html[dir='ltr'] .markdown-content * {
+  direction: ltr;
+  text-align: left;
 }
 
 /* Code elements should remain LTR */

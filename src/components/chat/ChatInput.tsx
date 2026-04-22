@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, KeyboardEvent } from 'react';
 import { motion } from 'framer-motion';
 import { Send, Loader2 } from 'lucide-react';
+import { useI18n } from '../../lib/i18n';
 
 interface ChatInputProps {
   onSend: (message: string) => void;
@@ -13,8 +14,10 @@ export default function ChatInput({
   onSend,
   isLoading,
   suggestions,
-  placeholder = 'پیام خود را بنویسید...',
+  placeholder,
 }: ChatInputProps) {
+  const { t, isRtl } = useI18n();
+  const effectivePlaceholder = placeholder ?? t('chat.input.placeholder');
   const [input, setInput] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -86,7 +89,7 @@ export default function ChatInput({
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={placeholder}
+              placeholder={effectivePlaceholder}
               disabled={isLoading}
               rows={1}
               className="
@@ -120,14 +123,14 @@ export default function ChatInput({
             {isLoading ? (
               <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
-              <Send className="w-5 h-5 rotate-180" />
+              <Send className={`w-5 h-5 ${isRtl ? 'rotate-180' : ''}`} />
             )}
           </motion.button>
         </div>
 
         {/* Helper Text */}
         <p className="text-center text-xs text-dark-300 mt-3">
-          Shift + Enter برای خط جدید • Enter برای ارسال
+          {t('chat.input.helper')}
         </p>
       </div>
     </div>

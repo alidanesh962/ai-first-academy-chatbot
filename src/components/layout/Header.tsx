@@ -3,22 +3,24 @@ import { motion } from 'framer-motion';
 import { Bot, BookOpen, MessageCircle } from 'lucide-react';
 import Container from './Container';
 import { isOnboardingComplete, loadOnboarding } from '../../lib/onboarding';
-
-const navItems = [
-  { path: '/', label: 'خانه', icon: Bot },
-  { path: '/course', label: 'محتوای دوره', icon: BookOpen },
-  { path: '/chat', label: 'مشاور', icon: MessageCircle },
-];
+import { useI18n } from '../../lib/i18n';
+import LanguageToggle from '../ui/LanguageToggle';
 
 export default function Header() {
   const location = useLocation();
+  const { t } = useI18n();
   const chatPath = isOnboardingComplete(loadOnboarding()) ? '/chat' : '/onboarding';
+
+  const navItems = [
+    { path: '/', label: t('nav.home'), icon: Bot },
+    { path: '/course', label: t('nav.course'), icon: BookOpen },
+    { path: '/chat', label: t('nav.advisor'), icon: MessageCircle },
+  ];
 
   return (
     <header className="sticky top-0 z-50 glass-effect border-b border-dark-100">
       <Container>
         <nav className="flex items-center justify-between h-16 sm:h-20">
-          {/* Logo */}
           <Link to="/" className="flex items-center gap-3">
             <motion.div
               whileHover={{ rotate: 10 }}
@@ -27,12 +29,11 @@ export default function Header() {
               <span className="text-dark-700 font-bold text-lg sm:text-xl">AI</span>
             </motion.div>
             <div className="hidden sm:block">
-              <h1 className="font-bold text-dark-700 text-lg">آکادمی AI-First</h1>
-              <p className="text-xs text-dark-400">مشاور دوره</p>
+              <h1 className="font-bold text-dark-700 text-lg">{t('nav.brand.title')}</h1>
+              <p className="text-xs text-dark-400">{t('nav.brand.subtitle')}</p>
             </div>
           </Link>
 
-          {/* Navigation */}
           <div className="flex items-center gap-1 sm:gap-2">
             {navItems.map(({ path, label, icon: Icon }) => {
               const effectivePath = path === '/chat' ? chatPath : path;
@@ -49,8 +50,8 @@ export default function Header() {
                     flex items-center gap-2
                     text-sm sm:text-base font-medium
                     transition-colors duration-200
-                    ${isActive 
-                      ? 'text-dark-700' 
+                    ${isActive
+                      ? 'text-dark-700'
                       : 'text-dark-400 hover:text-dark-600 hover:bg-dark-50'
                     }
                   `}
@@ -67,10 +68,10 @@ export default function Header() {
                 </Link>
               );
             })}
+            <LanguageToggle size="sm" className="ml-1 sm:ml-2" />
           </div>
         </nav>
       </Container>
     </header>
   );
 }
-

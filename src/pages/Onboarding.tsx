@@ -2,14 +2,15 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { CheckCircle2, ChevronLeft, ChevronRight, Phone, User, GraduationCap, Gauge, Clock, Zap, Wrench, Target, Users, Loader2 } from 'lucide-react';
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Textarea } from '../components/ui';
+import { parsePhoneNumberFromString, type CountryCode } from 'libphonenumber-js';
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, InternationalPhoneInput, Textarea } from '../components/ui';
 import { Container, PageWrapper } from '../components/layout';
 import {
   isOnboardingComplete,
-  isValidIranPhone,
   loadOnboarding,
   normalizePhone,
   saveOnboarding,
+  toE164Phone,
   type OnboardingData,
   type OnboardingGender,
   type OnboardingPace,
@@ -17,6 +18,7 @@ import {
   type Week4GoalChoice,
 } from '../lib/onboarding';
 import { sendOnboardingWebhook } from '../lib/chat-service';
+import { useI18n } from '../lib/i18n';
 
 type StepId =
   | 'phone'
@@ -41,16 +43,39 @@ const toolSuggestions = ['ChatGPT', 'Claude', 'Gemini', 'Perplexity', 'Cursor', 
 
 export default function Onboarding() {
   const navigate = useNavigate();
+  const { t, isRtl } = useI18n();
 
   const existing = useMemo(() => loadOnboarding(), []);
   const alreadyCompleted = useMemo(() => isOnboardingComplete(existing), [existing]);
 
+  const initialPhone = useMemo(() => {
+    const raw = existing?.phone ?? '';
+    const normalized = normalizePhone(raw);
+    const fallbackCountry: CountryCode = 'IR';
+    if (!normalized) return { country: fallbackCountry, national: '' };
+
+    const parsed = normalized.startsWith('+')
+      ? parsePhoneNumberFromString(normalized)
+      : parsePhoneNumberFromString(normalized, fallbackCountry);
+
+    if (parsed?.isValid()) {
+      return {
+        country: (parsed.country ?? fallbackCountry) as CountryCode,
+        national: parsed.nationalNumber,
+      };
+    }
+
+    // If we can't parse, keep a best-effort national value and fallback country.
+    return { country: fallbackCountry, national: normalized.replace(/^\+/, '') };
+  }, [existing]);
+
   const [stepIndex, setStepIndex] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [phoneCountry, setPhoneCountry] = useState<CountryCode>(initialPhone.country);
 
   const [form, setForm] = useState<Omit<OnboardingData, 'completedAt'>>({
-    phone: existing?.phone ?? '',
+    phone: initialPhone.national,
     job: existing?.job ?? '',
     age: existing?.age ?? 0,
     gender: existing?.gender ?? 'na',
@@ -94,41 +119,40 @@ export default function Onboarding() {
 
     switch (currentStepId) {
       case 'phone': {
-        const phone = normalizePhone(form.phone);
-        if (!phone) nextErrors.phone = 'شماره تلفن را وارد کنید.';
-        else if (!isValidIranPhone(phone)) nextErrors.phone = 'شماره تلفن معتبر نیست. (مثل ۰۹۱۲۱۲۳۴۵۶۷)';
+        const raw = form.phone;
+        if (!normalizePhone(raw)) nextErrors.phone = t('err.phone.required');
+        else if (!toE164Phone(raw, phoneCountry)) nextErrors.phone = t('err.phone.invalid');
         break;
       }
       case 'job':
-        if (!form.job.trim()) nextErrors.job = 'شغل خود را وارد کنید.';
+        if (!form.job.trim()) nextErrors.job = t('err.job.required');
         break;
       case 'age':
-        if (!Number.isFinite(form.age) || form.age <= 0) nextErrors.age = 'سن را به‌صورت عدد وارد کنید.';
-        else if (form.age < 10 || form.age > 100) nextErrors.age = 'لطفاً سن را بین ۱۰ تا ۱۰۰ وارد کنید.';
+        if (!Number.isFinite(form.age) || form.age <= 0) nextErrors.age = t('err.age.numeric');
+        else if (form.age < 10 || form.age > 100) nextErrors.age = t('err.age.range');
         break;
       case 'gender':
-        if (!form.gender) nextErrors.gender = 'لطفاً یک گزینه انتخاب کنید.';
+        if (!form.gender) nextErrors.gender = t('err.gender.required');
         break;
       case 'education':
-        if (!form.education.trim()) nextErrors.education = 'تحصیلات را وارد کنید.';
+        if (!form.education.trim()) nextErrors.education = t('err.edu.required');
         break;
       case 'level':
-        if (!Number.isFinite(form.level0to10)) nextErrors.level0to10 = 'سطح را وارد کنید.';
-        else if (form.level0to10 < 0 || form.level0to10 > 10) nextErrors.level0to10 = 'سطح باید بین ۰ تا ۱۰ باشد.';
+        if (!Number.isFinite(form.level0to10)) nextErrors.level0to10 = t('err.level.required');
+        else if (form.level0to10 < 0 || form.level0to10 > 10) nextErrors.level0to10 = t('err.level.range');
         break;
       case 'time':
-        if (!form.timePerWeek) nextErrors.timePerWeek = 'لطفاً زمان هفتگی را انتخاب کنید.';
+        if (!form.timePerWeek) nextErrors.timePerWeek = t('err.time.required');
         break;
       case 'pace':
-        if (!form.pace) nextErrors.pace = 'لطفاً یک گزینه انتخاب کنید.';
+        if (!form.pace) nextErrors.pace = t('err.pace.required');
         break;
       case 'tools':
-        // optional
         break;
       case 'week4':
-        if (!form.week4GoalChoice) nextErrors.week4GoalChoice = 'لطفاً یک گزینه انتخاب کنید.';
+        if (!form.week4GoalChoice) nextErrors.week4GoalChoice = t('err.week4.required');
         if (form.week4GoalChoice === 'other' && !form.week4GoalOtherText?.trim()) {
-          nextErrors.week4GoalOtherText = 'لطفاً هدف خود را بنویسید.';
+          nextErrors.week4GoalOtherText = t('err.week4.otherRequired');
         }
         break;
       default:
@@ -151,7 +175,7 @@ export default function Onboarding() {
     
     const data: OnboardingData = {
       ...form,
-      phone: normalizePhone(form.phone),
+      phone: toE164Phone(form.phone, phoneCountry),
       completedAt: new Date().toISOString(),
     };
     saveOnboarding(data);
@@ -179,52 +203,44 @@ export default function Onboarding() {
 
   const stepMeta = useMemo(() => {
     const metaById: Record<StepId, { title: string; desc: string; icon: ReactNode }> = {
-      phone: {
-        title: 'شماره تلفن',
-        desc: 'برای ارتباط و پیگیری بهتر، شماره تلفن‌تان را وارد کنید.',
-        icon: <Phone className="w-5 h-5 text-primary-600" />,
-      },
-      job: { title: 'شغل', desc: 'شغل یا حوزه کاری شما چیست؟', icon: <User className="w-5 h-5 text-primary-600" /> },
-      age: { title: 'سن', desc: 'سن شما چند سال است؟', icon: <Users className="w-5 h-5 text-primary-600" /> },
-      gender: { title: 'جنسیت', desc: 'لطفاً انتخاب کنید.', icon: <Users className="w-5 h-5 text-primary-600" /> },
-      education: { title: 'تحصیلات', desc: 'بالاترین سطح تحصیلات شما چیست؟', icon: <GraduationCap className="w-5 h-5 text-primary-600" /> },
-      level: { title: 'سطح (۰ تا ۱۰)', desc: 'سطح فعلی‌تان در کار با AI را مشخص کنید.', icon: <Gauge className="w-5 h-5 text-primary-600" /> },
-      time: { title: 'زمان/هفته', desc: 'در هفته چقدر وقت می‌گذارید؟', icon: <Clock className="w-5 h-5 text-primary-600" /> },
-      pace: { title: 'ریتم یادگیری', desc: 'ترجیح می‌دهید سریع پیش بروید یا عمیق؟', icon: <Zap className="w-5 h-5 text-primary-600" /> },
-      tools: { title: 'ابزارها (اختیاری)', desc: 'چه ابزارهای AI استفاده می‌کنید؟', icon: <Wrench className="w-5 h-5 text-primary-600" /> },
-      week4: {
-        title: 'هدف هفته ۴',
-        desc: 'وقتی هفته ۴ تمام می‌شود، بیشتر از همه دوست دارید چه چیزی درست باشد؟',
-        icon: <Target className="w-5 h-5 text-primary-600" />,
-      },
+      phone: { title: t('onb.phone.title'), desc: t('onb.phone.desc'), icon: <Phone className="w-5 h-5 text-primary-600" /> },
+      job: { title: t('onb.job.title'), desc: t('onb.job.desc'), icon: <User className="w-5 h-5 text-primary-600" /> },
+      age: { title: t('onb.age.title'), desc: t('onb.age.desc'), icon: <Users className="w-5 h-5 text-primary-600" /> },
+      gender: { title: t('onb.gender.title'), desc: t('onb.gender.desc'), icon: <Users className="w-5 h-5 text-primary-600" /> },
+      education: { title: t('onb.edu.title'), desc: t('onb.edu.desc'), icon: <GraduationCap className="w-5 h-5 text-primary-600" /> },
+      level: { title: t('onb.level.title'), desc: t('onb.level.desc'), icon: <Gauge className="w-5 h-5 text-primary-600" /> },
+      time: { title: t('onb.time.title'), desc: t('onb.time.desc'), icon: <Clock className="w-5 h-5 text-primary-600" /> },
+      pace: { title: t('onb.pace.title'), desc: t('onb.pace.desc'), icon: <Zap className="w-5 h-5 text-primary-600" /> },
+      tools: { title: t('onb.tools.title'), desc: t('onb.tools.desc'), icon: <Wrench className="w-5 h-5 text-primary-600" /> },
+      week4: { title: t('onb.week4.title'), desc: t('onb.week4.desc'), icon: <Target className="w-5 h-5 text-primary-600" /> },
     };
     return metaById[currentStepId];
-  }, [currentStepId]);
+  }, [currentStepId, t]);
 
   const genderOptions: Array<{ value: OnboardingGender; label: string }> = [
-    { value: 'male', label: 'مرد' },
-    { value: 'female', label: 'زن' },
-    { value: 'other', label: 'دیگر' },
-    { value: 'na', label: 'ترجیح می‌دهم نگویم' },
+    { value: 'male', label: t('onb.gender.male') },
+    { value: 'female', label: t('onb.gender.female') },
+    { value: 'other', label: t('onb.gender.other') },
+    { value: 'na', label: t('onb.gender.na') },
   ];
 
   const timeOptions: Array<{ value: OnboardingTimePerWeek; label: string }> = [
-    { value: '2h', label: '۲ ساعت' },
-    { value: '5h', label: '۵ ساعت' },
-    { value: '10h', label: '۱۰ ساعت' },
+    { value: '2h', label: t('onb.time.2h') },
+    { value: '5h', label: t('onb.time.5h') },
+    { value: '10h', label: t('onb.time.10h') },
   ];
 
   const paceOptions: Array<{ value: OnboardingPace; label: string; hint: string }> = [
-    { value: 'fast', label: 'فست ترک', hint: 'سریع و نتیجه‌محور' },
-    { value: 'deep', label: 'عمیق', hint: 'با مثال و تمرین بیشتر' },
+    { value: 'fast', label: t('onb.pace.fast'), hint: t('onb.pace.fastHint') },
+    { value: 'deep', label: t('onb.pace.deep'), hint: t('onb.pace.deepHint') },
   ];
 
   const week4Options: Array<{ value: Week4GoalChoice; label: string }> = [
-    { value: 'explain_ai_confident', label: 'می‌تونم AI رو واضح توضیح بدم و اعتمادبه‌نفس داشته باشم.' },
-    { value: 'use_chatgpt_pro', label: 'می‌تونم مثل حرفه‌ای‌ها از ChatGPT برای کارهای واقعی استفاده کنم.' },
-    { value: 'mini_workflow', label: 'یک مینی‌ورک‌فلو/اتوماسیونِ قابل‌استفاده برای کارم دارم.' },
-    { value: 'money_plan', label: 'یک برنامه روشن دارم که AI چطور برام پول می‌سازه.' },
-    { value: 'other', label: 'سایر' },
+    { value: 'explain_ai_confident', label: t('onb.week4.explain') },
+    { value: 'use_chatgpt_pro', label: t('onb.week4.chatgpt') },
+    { value: 'mini_workflow', label: t('onb.week4.mini') },
+    { value: 'money_plan', label: t('onb.week4.money') },
+    { value: 'other', label: t('onb.week4.other') },
   ];
 
   // Show loading screen while submitting onboarding data
@@ -246,10 +262,10 @@ export default function Onboarding() {
               <div className="absolute inset-0 w-24 h-24 bg-primary/10 rounded-full animate-ping" />
             </div>
             <h2 className="text-2xl font-bold text-dark-700 mb-3 text-center">
-              در حال آماده‌سازی...
+              {t('onb.submitting.title')}
             </h2>
             <p className="text-dark-400 text-center max-w-sm leading-relaxed">
-              لطفاً صبر کنید، مشاور شخصی شما در حال آماده شدن است.
+              {t('onb.submitting.desc')}
             </p>
           </motion.div>
         </Container>
@@ -272,14 +288,14 @@ export default function Onboarding() {
                   <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
                     {stepMeta.icon}
                   </div>
-                  <div className="text-right">
+                  <div className={isRtl ? 'text-right' : 'text-left'}>
                     <CardTitle className="text-dark-700">{stepMeta.title}</CardTitle>
                     <CardDescription className="text-sm">{stepMeta.desc}</CardDescription>
                   </div>
                 </div>
-                <div className="text-left">
+                <div className={isRtl ? 'text-left' : 'text-right'}>
                   <div className="text-sm text-dark-500 font-semibold">
-                    مرحله {stepIndex + 1} از {TOTAL_STEPS}
+                    {t('onb.step.of', { current: stepIndex + 1, total: TOTAL_STEPS })}
                   </div>
                   <div className="text-xs text-dark-300">{progressPct}%</div>
                 </div>
@@ -294,25 +310,29 @@ export default function Onboarding() {
               {/* Step Content */}
               {currentStepId === 'phone' && (
                 <div className="space-y-4">
-                  <Input
-                    label="شماره تلفن"
-                    placeholder="مثلاً ۰۹۱۲۱۲۳۴۵۶۷"
+                  <InternationalPhoneInput
+                    label={t('onb.phone.label')}
+                    placeholder={t('onb.phone.placeholder')}
                     value={form.phone}
-                    onChange={(e) => setField('phone', e.target.value)}
+                    onChange={(v) => setField('phone', v)}
                     error={errors.phone}
-                    inputMode="tel"
+                    country={phoneCountry}
+                    onCountryChange={(c) => {
+                      setPhoneCountry(c);
+                      setErrors((prev) => ({ ...prev, phone: '' }));
+                    }}
                     autoFocus
                   />
                   <p className="text-xs text-dark-300 leading-relaxed">
-                    فقط برای شخصی‌سازی مشاوره و پیگیری بهتر استفاده می‌شود.
+                    {t('onb.phone.hint')}
                   </p>
                 </div>
               )}
 
               {currentStepId === 'job' && (
                 <Input
-                  label="شغل"
-                  placeholder="مثلاً برنامه‌نویس، مدیر محصول، فروش، دانشجو..."
+                  label={t('onb.job.title')}
+                  placeholder={t('onb.job.placeholder')}
                   value={form.job}
                   onChange={(e) => setField('job', e.target.value)}
                   error={errors.job}
@@ -322,8 +342,8 @@ export default function Onboarding() {
 
               {currentStepId === 'age' && (
                 <Input
-                  label="سن"
-                  placeholder="مثلاً ۲۷"
+                  label={t('onb.age.title')}
+                  placeholder={t('onb.age.placeholder')}
                   value={form.age ? String(form.age) : ''}
                   onChange={(e) => {
                     const raw = e.target.value;
@@ -358,8 +378,8 @@ export default function Onboarding() {
 
               {currentStepId === 'education' && (
                 <Input
-                  label="تحصیلات"
-                  placeholder="مثلاً دیپلم، کارشناسی، کارشناسی ارشد..."
+                  label={t('onb.edu.title')}
+                  placeholder={t('onb.edu.placeholder')}
                   value={form.education}
                   onChange={(e) => setField('education', e.target.value)}
                   error={errors.education}
@@ -370,8 +390,8 @@ export default function Onboarding() {
               {currentStepId === 'level' && (
                 <div className="space-y-4">
                   <Input
-                    label="سطح شما (۰ تا ۱۰)"
-                    placeholder="۰"
+                    label={t('onb.level.label')}
+                    placeholder="0"
                     value={String(form.level0to10)}
                     onChange={(e) => {
                       const n = Number(normalizePhone(e.target.value).replace('+', '').replace(/^0+/, ''));
@@ -382,8 +402,8 @@ export default function Onboarding() {
                     autoFocus
                   />
                   <div className="flex justify-between text-xs text-dark-300">
-                    <span>۰: تازه‌کار</span>
-                    <span>۱۰: خیلی حرفه‌ای</span>
+                    <span>{t('onb.level.lo')}</span>
+                    <span>{t('onb.level.hi')}</span>
                   </div>
                 </div>
               )}
@@ -453,8 +473,8 @@ export default function Onboarding() {
                   </div>
 
                   <Input
-                    label="ابزارهای دیگر (اختیاری)"
-                    placeholder="مثلاً Midjourney, Notion AI..."
+                    label={t('onb.tools.other')}
+                    placeholder={t('onb.tools.placeholder')}
                     value={(form.tools ?? []).filter((x) => !toolSuggestions.includes(x)).join(', ')}
                     onChange={(e) => {
                       const raw = e.target.value;
@@ -478,7 +498,7 @@ export default function Onboarding() {
                         type="button"
                         onClick={() => setField('week4GoalChoice', opt.value)}
                         className={`
-                          w-full text-right px-4 py-3 rounded-2xl border transition-all
+                          w-full ${isRtl ? 'text-right' : 'text-left'} px-4 py-3 rounded-2xl border transition-all
                           ${form.week4GoalChoice === opt.value
                             ? 'border-primary bg-primary/10'
                             : 'border-dark-100 bg-white hover:bg-dark-50'}
@@ -495,8 +515,8 @@ export default function Onboarding() {
 
                   {form.week4GoalChoice === 'other' && (
                     <Textarea
-                      label="هدف شما"
-                      placeholder="هدف خودتان را بنویسید..."
+                      label={t('onb.week4.otherLabel')}
+                      placeholder={t('onb.week4.otherPlaceholder')}
                       value={form.week4GoalOtherText ?? ''}
                       onChange={(e) => setField('week4GoalOtherText', e.target.value)}
                       error={errors.week4GoalOtherText}
@@ -513,29 +533,29 @@ export default function Onboarding() {
                   size="md"
                   onClick={goBack}
                   disabled={stepIndex === 0}
-                  icon={<ChevronRight className="w-4 h-4" />}
+                  icon={isRtl ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
                   iconPosition="start"
                 >
-                  قبلی
+                  {t('onb.prev')}
                 </Button>
 
                 {stepIndex < TOTAL_STEPS - 1 ? (
                   <Button
                     size="md"
                     onClick={goNext}
-                    icon={<ChevronLeft className="w-4 h-4" />}
+                    icon={isRtl ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                     iconPosition="end"
                   >
-                    ادامه
+                    {t('onb.next')}
                   </Button>
                 ) : (
                   <Button
                     size="md"
                     onClick={finish}
-                    icon={<ChevronLeft className="w-4 h-4" />}
+                    icon={isRtl ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                     iconPosition="end"
                   >
-                    شروع گفتگو
+                    {t('onb.finish')}
                   </Button>
                 )}
               </div>
@@ -543,11 +563,11 @@ export default function Onboarding() {
           </Card>
 
           <div className="mt-6 text-center text-xs text-dark-300">
-            اگر نمی‌خواهید الان ادامه دهید، می‌توانید به{' '}
+            {t('onb.backToHome.prefix')}{' '}
             <button className="underline hover:text-dark-500" onClick={() => navigate('/', { replace: true })}>
-              صفحه اصلی
-            </button>{' '}
-            برگردید.
+              {t('onb.backToHome.link')}
+            </button>
+            {t('onb.backToHome.suffix')}
           </div>
         </motion.div>
       </Container>

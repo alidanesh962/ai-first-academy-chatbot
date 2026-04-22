@@ -1,5 +1,20 @@
-import { chatbotIntro } from './course-data';
+import { chatbotIntro, chatbotIntroEn } from './course-data';
 import { loadOnboarding } from './onboarding';
+
+// Lightweight language resolver for non-React modules.
+// The LanguageProvider persists the selected language to localStorage under this key.
+const LANG_KEY = 'kheizaran_language';
+function currentLang(): 'fa' | 'en' {
+  try {
+    const v = localStorage.getItem(LANG_KEY);
+    return v === 'en' ? 'en' : 'fa';
+  } catch {
+    return 'fa';
+  }
+}
+function getIntro() {
+  return currentLang() === 'en' ? chatbotIntroEn : chatbotIntro;
+}
 
 export interface Message {
   id: string;
@@ -90,10 +105,16 @@ export async function sendMessage(content: string): Promise<ChatResponse> {
     }
   } catch (error) {
     console.error('Error sending message to webhook:', error);
-    // Return a fallback error message
+    const intro = getIntro();
+    const lang = currentLang();
     return {
-      message: `متأسفانه در برقراری ارتباط مشکلی پیش آمد. لطفاً دوباره تلاش کنید.\n\n${chatbotIntro.capabilities.map(c => `• ${c}`).join('\n')}`,
-      suggestions: ['محتوای دوره', 'مسیرهای یادگیری'],
+      message:
+        (lang === 'en'
+          ? 'Sorry, there was a connection problem. Please try again.'
+          : 'متأسفانه در برقراری ارتباط مشکلی پیش آمد. لطفاً دوباره تلاش کنید.') +
+        `\n\n${intro.capabilities.map((c) => `• ${c}`).join('\n')}`,
+      suggestions:
+        lang === 'en' ? ['Course content', 'Learning paths'] : ['محتوای دوره', 'مسیرهای یادگیری'],
     };
   }
 }
@@ -208,10 +229,16 @@ export async function sendOnboardingWebhook(): Promise<ChatResponse> {
     }
   } catch (error) {
     console.error('Error sending onboarding webhook:', error);
-    // Return a fallback message
+    const lang = currentLang();
     return {
-      message: `به دوره AI-First خوش آمدید! 🎉\n\nاطلاعات شما با موفقیت ثبت شد. من مشاور شخصی شما در این دوره هستم و آماده پاسخگویی به سوالاتتان هستم.`,
-      suggestions: ['محتوای دوره چیست؟', 'از کجا شروع کنم؟'],
+      message:
+        lang === 'en'
+          ? `Welcome to the AI-First course! 🎉\n\nYour information was saved successfully. I am your personal advisor for this course and ready to answer your questions.`
+          : `به دوره AI-First خوش آمدید! 🎉\n\nاطلاعات شما با موفقیت ثبت شد. من مشاور شخصی شما در این دوره هستم و آماده پاسخگویی به سوالاتتان هستم.`,
+      suggestions:
+        lang === 'en'
+          ? ['What is the course about?', 'Where should I start?']
+          : ['محتوای دوره چیست؟', 'از کجا شروع کنم؟'],
     };
   }
 }
@@ -253,8 +280,11 @@ export function createMessage(role: 'user' | 'assistant', content: string): Mess
   };
 }
 
-// Get initial greeting message
+// Get initial greeting message (language-aware)
 export function getGreetingMessage(): Message {
-  return createMessage('assistant', `${chatbotIntro.greeting}\n\n${chatbotIntro.description}\n\nچطور می‌توانم کمکتان کنم؟`);
+  const intro = getIntro();
+  const lang = currentLang();
+  const tail = lang === 'en' ? 'How can I help you?' : 'چطور می‌توانم کمکتان کنم؟';
+  return createMessage('assistant', `${intro.greeting}\n\n${intro.description}\n\n${tail}`);
 }
 
