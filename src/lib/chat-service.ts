@@ -68,6 +68,7 @@ export async function sendMessage(content: string): Promise<ChatResponse> {
       body: JSON.stringify({
         message: content,
         userId: userId,
+        language: currentLang(),
         timestamp: new Date().toISOString(),
       }),
     });
@@ -193,6 +194,7 @@ export async function sendOnboardingWebhook(): Promise<ChatResponse> {
         message: messagePersian,
         userId: userId,
         onboardingData: onboarding,
+        language: currentLang(),
         timestamp: new Date().toISOString(),
       }),
     });
