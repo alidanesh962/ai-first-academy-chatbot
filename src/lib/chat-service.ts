@@ -80,7 +80,6 @@ export async function sendMessage(content: string): Promise<ChatResponse> {
       },
       body: JSON.stringify({
         message: content,
-        language: detectMessageLanguage(content),
         userId: userId,
         language: currentLang(),
         timestamp: new Date().toISOString(),
