@@ -55,6 +55,19 @@ function getUserId(): string {
   return userId;
 }
 
+/**
+ * Detect whether a user message is written in English or Persian
+ * based on the script used in the text (not the UI language toggle).
+ */
+function detectMessageLanguage(text: string): 'English' | 'Persian' {
+  const persianCount = (text.match(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/g) || []).length;
+  const latinCount = (text.match(/[A-Za-z]/g) || []).length;
+
+  if (persianCount > latinCount) return 'Persian';
+  if (latinCount > persianCount) return 'English';
+  return currentLang() === 'en' ? 'English' : 'Persian';
+}
+
 // Main chat function - sends message to webhook and returns response
 export async function sendMessage(content: string): Promise<ChatResponse> {
   try {
@@ -67,6 +80,7 @@ export async function sendMessage(content: string): Promise<ChatResponse> {
       },
       body: JSON.stringify({
         message: content,
+        language: detectMessageLanguage(content),
         userId: userId,
         language: currentLang(),
         timestamp: new Date().toISOString(),

@@ -1,4 +1,5 @@
-import { useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Bot, Sparkles, MessageCircle, BookOpen, Zap, ArrowLeft, ArrowRight, Clock, Target, CheckCircle2 } from 'lucide-react';
 import { Button, Accordion, AccordionItem, AccordionTrigger, AccordionContent, LanguageToggle } from '../components/ui';
@@ -52,6 +53,7 @@ const courseItemVariants = {
 
 export default function Welcome() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { isMobile, isDesktop } = useDevice();
   const { t, lang, isRtl } = useI18n();
 
@@ -73,12 +75,22 @@ export default function Welcome() {
     navigate(isDone ? '/chat' : '/onboarding');
   };
 
-  const scrollToCourseContent = () => {
-    document.getElementById('course-content')?.scrollIntoView({ behavior: 'smooth' });
+  const scrollToCourseContent = (behavior: ScrollBehavior = 'smooth') => {
+    document.getElementById('course-content')?.scrollIntoView({ behavior });
   };
 
+  // Header "Course Content" links to /course — land on the course section
+  useEffect(() => {
+    const shouldScroll =
+      location.pathname === '/course' || location.hash === '#course-content';
+    if (!shouldScroll) return;
+
+    const id = window.setTimeout(() => scrollToCourseContent('smooth'), 50);
+    return () => window.clearTimeout(id);
+  }, [location.pathname, location.hash]);
+
   return (
-    <PageWrapper showHeader={false} bgVariant="gradient">
+    <PageWrapper showHeader={location.pathname === '/course'} bgVariant="gradient">
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center overflow-hidden">
         <div className="absolute inset-0 -z-10">
@@ -147,7 +159,7 @@ export default function Welcome() {
             >
               <Button
                 size={isMobile ? 'lg' : 'xl'}
-                onClick={scrollToCourseContent}
+                onClick={() => scrollToCourseContent()}
                 icon={<ForwardArrow className="w-4 h-4 sm:w-5 sm:h-5" />}
                 iconPosition="end"
                 fullWidth={isMobile}
